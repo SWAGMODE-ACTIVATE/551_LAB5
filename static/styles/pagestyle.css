@@ -1,0 +1,23 @@
+body {
+	background-color: #8ACE00;
+	text-align: center;
+
+	h1 {
+		font-size: 72px;
+	}
+
+	input {
+		padding: 0 5px;
+		margin: 0;
+	}
+
+	ul {
+		list-style-type: none;
+		padding: 0;
+	}
+
+	.warning {
+		color: red;
+	}
+}
+
