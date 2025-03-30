@@ -11,7 +11,7 @@
 
     <body>
         <h1>temperature map</h1>
-        <p id="coolmessage">gya</p>
+        <p id="coolmessage", class= "warning">gya</p>
         <p></p>
         <p>input host and port</p>
         <form id="mqttform">
@@ -45,7 +45,6 @@
 
     var userpoint = null
     
-
     document.getElementById("mqttform").addEventListener("submit", (event) => {
             event.preventDefault()
 
@@ -81,7 +80,6 @@
             
         }
         })
-    
     
     document.getElementById("share").addEventListener("click", () => {
     if (mqtt) {
@@ -132,7 +130,7 @@
         if (userpoint) {
         map.removeLayer(userpoint);
         }
-        
+
         userpoint = L.circleMarker([lat, long], { color: color }).addTo(map)
             .bindPopup(`Temp: ${temp}°C`)
             .openPopup();
