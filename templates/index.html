@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 
     <head>
-        <title>Temperature Map</title>
+        <title>temperature Map</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 	    <link rel="stylesheet" href="/static/styles/pagestyle.css">
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -11,6 +11,8 @@
 
     <body>
         <h1>temperature map</h1>
+        <p id="coolmessage">gya</p>
+        <p></p>
         <p>input host and port</p>
         <form id="mqttform">
             <label>broker:</label>
@@ -21,8 +23,8 @@
             
             <button type="submit">start</button>
             <button type="button" id="disconnect" disabled>end</button>
+            <button type="button" id="share" disabled>share my status</button>
         </form>
-
 
 
 
@@ -58,17 +60,18 @@
 
             mqtt = new Paho.MQTT.Client(broker, port, "orderform-" + Math.random());
             mqtt.onmessagearrived=onmessagearrived;
+            mqtt.onconnectionlost=onconnectionlost;
             mqtt.connect({
                 onSuccess: () => {
                     console.log("connected");
                     mqtt.subscribe(topic);
                     document.querySelector("button[type='submit']").disabled = true;
                     document.getElementById("disconnect").disabled = false;
+                    document.getElementById("share").disabled = false;
                 },
-
-                onFailure: (err) => console.error("Connection failed:", err)
-            });
-        });
+                onFailure: (err) => console.error("erorr:", err)
+            })
+        })
         
     document.getElementById("disconnect").addEventListener("click", () => {
         if (mqtt) {
@@ -76,11 +79,38 @@
             console.log("disconnected");
             document.querySelector("button[type='submit']").disabled = false;
             document.getElementById("disconnect").disabled = true;
+            document.getElementById("share").disabled = true;
+            
         }
-        });
+        })
     
     
-    
+    document.getElementById("share").addEventListener("click", () => {
+    if (mqtt) {
+        document.getElementById("coolmessage").innerHTML = "sharing"
+        if ("geolocation" in navigator){
+            navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude
+            const long = position.coords.longitude
+            const temp = Math.floor(Math.random()*(60 + 40)-40)
+            const geojson = {
+                type: "Feature",
+                properties: {temp},
+                geometry: {type: "Point", coordinates: [long, lat]}
+            }
+            
+            const geojsonstring = JSON.stringify(geojson)
+            console.log(geojsonstring)
+            })
+        }
+        else{
+            document.getElementById("coolmessage").innerHTML = "geolocation not supported in your browser."
+        }
+
+
+        
+    }
+    })
     
     
     
@@ -117,6 +147,10 @@
 
     function onmessagearrived(msg){
         console.log(msg.payloadString)
+    }
+
+    function onconnectionlost(){
+        console.log("connection lost")
     }
 
     </script> 
