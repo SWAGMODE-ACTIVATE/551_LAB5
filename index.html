@@ -132,8 +132,7 @@
         if (userpoint) {
         map.removeLayer(userpoint);
         }
-
-        // Add new marker with correct color syntax
+        
         userpoint = L.circleMarker([lat, long], { color: color }).addTo(map)
             .bindPopup(`Temp: ${temp}°C`)
             .openPopup();
