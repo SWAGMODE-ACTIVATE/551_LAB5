@@ -11,7 +11,7 @@
 
     <body>
         <h1>temperature map</h1>
-        <p id="coolmessage", class= "warning">gya</p>
+        <p id="coolmessage", class= "warning">welcome to the temperature map</p>
         <p></p>
         <p>input host and port</p>
         <form id="mqttform">
@@ -33,47 +33,52 @@
     </body>
 
     <script> 
+    //making map object
     var map = L.map('map', {
         center: [51,-114],
         zoom:10
     });
-    
+    //adds calagry streetmap layer base
     var tile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
     tile.addTo(map)
 
+    //sets up point that will be used later
     var userpoint = null
     
+    //reads connection form
     document.getElementById("mqttform").addEventListener("submit", (event) => {
-            event.preventDefault()
+            event.preventDefault() //stops page from reloading
 
             const broker = document.getElementById("broker").value
-            const port = Number(document.getElementById("port").value)
+            const port = Number(document.getElementById("port").value)//vals from form
             const topic = document.getElementById("topic").value
 
-            mqtt = new Paho.MQTT.Client(broker, port, "orderform-" + Math.random())
+            mqtt = new Paho.MQTT.Client(broker, port, "orderform-" + Math.random())//attempt to connect
             mqtt.onMessageArrived=onmessagearrived
             mqtt.onConnectionLost=onconnectionlost
             mqtt.connect({
                 onSuccess: () => {
                     console.log("connected")
+                    document.getElementById("coolmessage").innerHTML = "connected succesfully"
                     mqtt.subscribe(topic, {
                         onSuccess: () => console.log("subscribed")
                     })
 
                     document.querySelector("button[type='submit']").disabled = true
-                    document.getElementById("disconnect").disabled = false
+                    document.getElementById("disconnect").disabled = false//flips buttons around from diasbled/enabled
                     document.getElementById("share").disabled = false
                 },
                 onFailure: (err) => console.error("erorr:", err)
             })
         })
         
-    document.getElementById("disconnect").addEventListener("click", () => {
+    document.getElementById("disconnect").addEventListener("click", () => {//works the disconnect button
         if (mqtt) {
             mqtt.disconnect()
             console.log("disconnected")
+            document.getElementById("coolmessage").innerHTML = "disconnected"
             document.querySelector("button[type='submit']").disabled = false
             document.getElementById("disconnect").disabled = true
             document.getElementById("share").disabled = true
@@ -81,16 +86,16 @@
         }
         })
     
-    document.getElementById("share").addEventListener("click", () => {
+    document.getElementById("share").addEventListener("click", () => {//share button
     if (mqtt) {
         document.getElementById("coolmessage").innerHTML = "sharing"
-        if ("geolocation" in navigator){
+        if ("geolocation" in navigator){//checks if browser has geolocation
             navigator.geolocation.getCurrentPosition((position) => {
             const lat = position.coords.latitude
             const long = position.coords.longitude
-            const temp = Math.floor(Math.random()*(60 + 40)-40)
+            const temp = Math.floor(Math.random()*(60 + 40)-40) //gets lat, long and makes a random temp value
             const geojson = {
-                type: "Feature",
+                type: "Feature",//creates gepjson object using  the lat long and temp
                 properties: {temp},
                 geometry: {type: "Point", coordinates: [long, lat]}
             }
@@ -98,7 +103,7 @@
             
             const geojsonstring = JSON.stringify(geojson)
             console.log(geojsonstring)
-            console.log("geojson created. sending to mqtt...")
+            console.log("geojson created. sending to mqtt...") //publishes the geojson to the topic
             const message = new Paho.MQTT.Message(geojsonstring)
             message.destinationName = topic
             mqtt.send(message)
@@ -110,16 +115,16 @@
     }
     })
 
-    function onmessagearrived(msg){
+    function onmessagearrived(msg){//reads new maessages on the topic
         console.log("incoming message:")
-        console.log(msg.payloadString)
-        const markerpos = JSON.parse(msg.payloadString)
+        console.log(msg.payloadString) //puts it in broswer console
+        const markerpos = JSON.parse(msg.payloadString) //gets the variables from the geojson
         const coordinates = markerpos.geometry.coordinates
         const temp = markerpos.properties.temp
         const [long, lat] = coordinates
 
         let color
-        if (temp < 10){
+        if (temp < 10){ //decides color based on temp value
             color = "blue";
         } else if (temp < 30){
             color = "green";
@@ -127,21 +132,22 @@
             color = "red";
         }
         
-        if (userpoint) {
+        if (userpoint) { //removes old point
         map.removeLayer(userpoint);
         }
-
+        //creates the map marker
         userpoint = L.circleMarker([lat, long], { color: color }).addTo(map)
             .bindPopup(`Temp: ${temp}°C`)
             .openPopup();
         }
-
+        //recenters map on point
         map.setView([lat, long], 13);
 
-    function onconnectionlost(){
+    function onconnectionlost(){//runs when connection is lost to the topic or boker
         console.log("connection lost")
+        alert("coonnection lost, please reconnect.")
         document.querySelector("button[type='submit']").disabled = false
-        document.getElementById("disconnect").disabled = true
+        document.getElementById("disconnect").disabled = true  
         document.getElementById("share").disabled = true
     }
     </script> 
