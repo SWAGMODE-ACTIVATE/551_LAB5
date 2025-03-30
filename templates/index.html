@@ -20,21 +20,14 @@
             
             <label>port:</label>
             <input type="number" id="port" value="8080" required>
+
+            <label>topic:</label>
+            <input type="text" id="topic" value="ENGO551/nick_kennedy/my_temperature" required>
             
             <button type="submit">start</button>
             <button type="button" id="disconnect" disabled>end</button>
             <button type="button" id="share" disabled>share my status</button>
         </form>
-
-
-
-
-
-
-
-
-
-
 
         <div id="map" style="width: 1200px; height: 580px; margin: 0 auto"></div>
         <p class="warning">{{ message }}</p>
@@ -49,25 +42,40 @@
         </form>
     </body>
 
-    <script>
-    const topic = "ENGO551/nick_kennedy/my_temperature";
+    <script> 
+    var map = L.map('map', {
+        center: [51,-114],
+        zoom:10
+    });
     
+    var tile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
+    tile.addTo(map)
+
+    var userpoint = null
+    
+
     document.getElementById("mqttform").addEventListener("submit", (event) => {
-            event.preventDefault();
+            event.preventDefault()
 
-            const broker = document.getElementById("broker").value;
-            const port = Number(document.getElementById("port").value);
+            const broker = document.getElementById("broker").value
+            const port = Number(document.getElementById("port").value)
+            const topic = document.getElementById("topic").value
 
-            mqtt = new Paho.MQTT.Client(broker, port, "orderform-" + Math.random());
-            mqtt.onmessagearrived=onmessagearrived;
-            mqtt.onconnectionlost=onconnectionlost;
+            mqtt = new Paho.MQTT.Client(broker, port, "orderform-" + Math.random())
+            mqtt.onMessageArrived=onmessagearrived
+            mqtt.onConnectionLost=onconnectionlost
             mqtt.connect({
                 onSuccess: () => {
-                    console.log("connected");
-                    mqtt.subscribe(topic);
-                    document.querySelector("button[type='submit']").disabled = true;
-                    document.getElementById("disconnect").disabled = false;
-                    document.getElementById("share").disabled = false;
+                    console.log("connected")
+                    mqtt.subscribe(topic, {
+                        onSuccess: () => console.log("subscribed")
+                    })
+
+                    document.querySelector("button[type='submit']").disabled = true
+                    document.getElementById("disconnect").disabled = false
+                    document.getElementById("share").disabled = false
                 },
                 onFailure: (err) => console.error("erorr:", err)
             })
@@ -75,11 +83,11 @@
         
     document.getElementById("disconnect").addEventListener("click", () => {
         if (mqtt) {
-            mqtt.disconnect();
-            console.log("disconnected");
-            document.querySelector("button[type='submit']").disabled = false;
-            document.getElementById("disconnect").disabled = true;
-            document.getElementById("share").disabled = true;
+            mqtt.disconnect()
+            console.log("disconnected")
+            document.querySelector("button[type='submit']").disabled = false
+            document.getElementById("disconnect").disabled = true
+            document.getElementById("share").disabled = true
             
         }
         })
@@ -98,60 +106,61 @@
                 properties: {temp},
                 geometry: {type: "Point", coordinates: [long, lat]}
             }
+            const topic = document.getElementById("topic").value
             
             const geojsonstring = JSON.stringify(geojson)
             console.log(geojsonstring)
+            console.log("geojson created. sending to mqtt...")
+            const message = new Paho.MQTT.Message(geojsonstring)
+            if (!mqtt || !mqtt.isConnected()) {  // ✅ Check connection before sending
+                console.error("MQTT client is not connected. Cannot send message.");
+                document.getElementById("coolmessage").innerHTML = "MQTT not connected!";
+                return;
+            }
+            message.destinationName = topic
+            mqtt.send(message)
             })
         }
         else{
             document.getElementById("coolmessage").innerHTML = "geolocation not supported in your browser."
         }
-
-
-        
     }
     })
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    var map = L.map('map', {
-        center: [51,-114],
-        zoom:10
-    });
-    
-    var tile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
-
-    tile.addTo(map)
-
-    var tile2 = L.tileLayer(
-            'https://api.mapbox.com/styles/v1/blackgoatlaughs/cm83dqgdz000401so9cldhct2/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiYmxhY2tnb2F0bGF1Z2hzIiwiYSI6ImNtODNkYnYxaTBtcmEybHB3MnJ2bGQwNHkifQ.OYZqlOXTklXs9dHyt1WDjA',
-            {
-              maxZoom: 19,
-              attribution:
-                '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://www.mapbox.com/about/maps/">Mapbox</a> <strong><a href="https://labs.mapbox.com/contribute/" target="_blank">Improve this map</a></strong>'
-            }
-          )
-
-    tile2.addTo(map)
-
 
     function onmessagearrived(msg){
+        console.log("incoming message:")
         console.log(msg.payloadString)
-    }
+        const markerpos = JSON.parse(msg.payloadString)
+        const coordinates = markerpos.geometry.coordinates
+        const temp = markerpos.properties.temp
+        const [long, lat] = coordinates
+
+        let color
+        if (temp < 10){
+            color = "blue";
+        } else if (temp < 30){
+            color = "green";
+        } else {
+            color = "red";
+        }
+        
+        if (userpoint) {
+        map.removeLayer(userpoint);
+        }
+
+        // Add new marker with correct color syntax
+        userpoint = L.circleMarker([lat, long], { color: color }).addTo(map)
+            .bindPopup(`Temp: ${temp}°C`)
+            .openPopup();
+        }
+
+        map.setView([lat, long], 13);
 
     function onconnectionlost(){
         console.log("connection lost")
+        document.querySelector("button[type='submit']").disabled = false
+        document.getElementById("disconnect").disabled = true
+        document.getElementById("share").disabled = true
     }
-
     </script> 
 </html>
